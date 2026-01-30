@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>es_lib</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Match PolCam UI font/design language -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Swap to development builds by adding ?debug=1 to the NUI URL -->
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const debug = params.get('debug') === '1';
+
+            const reactSrc = debug
+                ? 'https://unpkg.com/react@18.2.0/umd/react.development.js'
+                : 'https://unpkg.com/react@18.2.0/umd/react.production.min.js';
+
+            const reactDomSrc = debug
+                ? 'https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js'
+                : 'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js';
+
+            const react = document.createElement('script');
+            react.src = reactSrc;
+            react.crossOrigin = 'anonymous';
+            react.onload = function () {
+                const reactDom = document.createElement('script');
+                reactDom.src = reactDomSrc;
+                reactDom.crossOrigin = 'anonymous';
+                document.head.appendChild(reactDom);
+            };
+            document.head.appendChild(react);
+        })();
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        // Ensure React/ReactDOM are loaded before app.js
+        (function () {
+            function boot() {
+                if (window.React && window.ReactDOM) {
+                    const app = document.createElement('script');
+                    app.src = 'app.js';
+                    document.body.appendChild(app);
+                    return;
+                }
+                setTimeout(boot, 10);
+            }
+            boot();
+        })();
+    </script>
+</body>
+</html>
