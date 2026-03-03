@@ -1,6 +1,6 @@
 # es_lib
 
-Lightweight UI and utility library for the es ecosystem.
+Lightweight UI and utility library for the Cortex ecosystem.
 
 ## Install
 
