@@ -1,12 +1,3 @@
---[[
-    Everest Lib - Entity Getter Functions
-    ox_lib compatible Get functions for finding closest/nearby entities
-]]
-
--- ============================================================================
--- CACHED NATIVES
--- ============================================================================
-
 local GetGamePool = GetGamePool
 local GetEntityCoords = GetEntityCoords
 local GetActivePlayers = GetActivePlayers
@@ -18,19 +9,6 @@ local PlayerPedId = PlayerPedId
 local GetVehiclePedIsIn = GetVehiclePedIsIn
 local IsPedAPlayer = IsPedAPlayer
 
-local sqrt = math.sqrt
-
--- ============================================================================
--- GET CLOSEST PLAYER
--- ============================================================================
-
----Get the player id, ped handle, and coords of the closest player to a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@param includePlayer? boolean Whether to include the current player (default false)
----@return number|nil playerId
----@return number|nil playerPed
----@return vector3|nil playerCoords
 local function getClosestPlayer(coords, maxDistance, includePlayer)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -68,16 +46,6 @@ local function getClosestPlayer(coords, maxDistance, includePlayer)
     return closestId, closestPed, closestCoords
 end
 
--- ============================================================================
--- GET CLOSEST VEHICLE
--- ============================================================================
-
----Get the vehicle handle and coords of the closest vehicle to a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@param includePlayerVehicle? boolean Whether to include the player's current vehicle (default false)
----@return number|nil vehicle
----@return vector3|nil vehicleCoords
 local function getClosestVehicle(coords, maxDistance, includePlayerVehicle)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -111,15 +79,6 @@ local function getClosestVehicle(coords, maxDistance, includePlayerVehicle)
     return closestVehicle, closestCoords
 end
 
--- ============================================================================
--- GET CLOSEST PED
--- ============================================================================
-
----Get the ped handle and coords of the closest ped to a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@return number|nil ped
----@return vector3|nil pedCoords
 local function getClosestPed(coords, maxDistance)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -153,15 +112,6 @@ local function getClosestPed(coords, maxDistance)
     return closestPed, closestCoords
 end
 
--- ============================================================================
--- GET CLOSEST OBJECT
--- ============================================================================
-
----Get the object handle and coords of the closest object to a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@return number|nil object
----@return vector3|nil objectCoords
 local function getClosestObject(coords, maxDistance)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -193,15 +143,6 @@ local function getClosestObject(coords, maxDistance)
     return closestObject, closestCoords
 end
 
--- ============================================================================
--- GET NEARBY PLAYERS
--- ============================================================================
-
----Get the player id, ped handle, and coords of all players within range of a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@param includePlayer? boolean Whether to include the current player (default false)
----@return table players Array of {id: number, ped: number, coords: vector3}
 local function getNearbyPlayers(coords, maxDistance, includePlayer)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -238,15 +179,6 @@ local function getNearbyPlayers(coords, maxDistance, includePlayer)
     return nearby
 end
 
--- ============================================================================
--- GET NEARBY VEHICLES
--- ============================================================================
-
----Get the vehicle handle and coords of all vehicles within range of a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@param includePlayerVehicle? boolean Whether to include the player's current vehicle (default false)
----@return table vehicles Array of {vehicle: number, coords: vector3}
 local function getNearbyVehicles(coords, maxDistance, includePlayerVehicle)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -280,14 +212,6 @@ local function getNearbyVehicles(coords, maxDistance, includePlayerVehicle)
     return nearby
 end
 
--- ============================================================================
--- GET NEARBY PEDS
--- ============================================================================
-
----Get the ped handle and coords of all peds within range of a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@return table peds Array of {ped: number, coords: vector3}
 local function getNearbyPeds(coords, maxDistance)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -321,14 +245,6 @@ local function getNearbyPeds(coords, maxDistance)
     return nearby
 end
 
--- ============================================================================
--- GET NEARBY OBJECTS
--- ============================================================================
-
----Get the object handle and coords of all objects within range of a set of coordinates
----@param coords vector3 The coords to check from
----@param maxDistance? number The max distance to check (default 2.0)
----@return table objects Array of {object: number, coords: vector3}
 local function getNearbyObjects(coords, maxDistance)
     maxDistance = maxDistance or 2.0
     local maxDistSq = maxDistance * maxDistance
@@ -360,10 +276,6 @@ local function getNearbyObjects(coords, maxDistance)
     return nearby
 end
 
--- ============================================================================
--- EXPORTS
--- ============================================================================
-
 exports('getClosestPlayer', getClosestPlayer)
 exports('getClosestVehicle', getClosestVehicle)
 exports('getClosestPed', getClosestPed)
@@ -372,10 +284,6 @@ exports('getNearbyPlayers', getNearbyPlayers)
 exports('getNearbyVehicles', getNearbyVehicles)
 exports('getNearbyPeds', getNearbyPeds)
 exports('getNearbyObjects', getNearbyObjects)
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.getClosestPlayer = getClosestPlayer
 lib.getClosestVehicle = getClosestVehicle

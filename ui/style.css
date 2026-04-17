@@ -1528,8 +1528,8 @@ body {
 }
 
 .progress-circle {
-    width: calc(96px * var(--es-ui-scale));
-    height: calc(96px * var(--es-ui-scale));
+    width: calc(72px * var(--es-ui-scale));
+    height: calc(72px * var(--es-ui-scale));
     position: relative;
     display: grid;
     place-items: center;
@@ -1558,8 +1558,8 @@ body {
 
 .progress-circle-center {
     position: absolute;
-    width: calc(76.8px * var(--es-ui-scale));
-    height: calc(76.8px * var(--es-ui-scale));
+    width: calc(57.6px * var(--es-ui-scale));
+    height: calc(57.6px * var(--es-ui-scale));
     border-radius: 50%;
     background: transparent;
     border: 0;
@@ -1568,7 +1568,7 @@ body {
 .progress-circle-text {
     position: relative;
     z-index: 1;
-    font-size: calc(16px * var(--es-ui-scale));
+    font-size: calc(12px * var(--es-ui-scale));
     color: var(--hud-color);
     font-weight: 700;
 }
@@ -2009,4 +2009,546 @@ body {
 .es-context-btn.confirm:hover {
     background: rgba(59, 130, 246, 0.6);
     border-color: rgba(59, 130, 246, 0.7);
+}
+
+/* ============================================================================
+   CENTRAL SETTINGS PANEL
+   ============================================================================ */
+
+.es-settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    pointer-events: all;
+    animation: esSettingsOverlayIn 0.2s ease-out;
+}
+
+@keyframes esSettingsOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.es-settings-modal {
+    width: calc(720px * var(--es-ui-scale));
+    max-height: 82vh;
+    background: rgba(16, 16, 16, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: calc(12px * var(--es-ui-scale));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: esSettingsModalIn 0.25s ease-out;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), 0 0 80px rgba(16, 185, 129, 0.05);
+}
+
+@keyframes esSettingsModalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Header */
+.es-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(14px * var(--es-ui-scale)) calc(20px * var(--es-ui-scale));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.es-settings-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(15px * var(--es-ui-scale));
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.es-settings-title .accent {
+    color: var(--es-success);
+}
+
+.es-settings-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(28px * var(--es-ui-scale));
+    height: calc(28px * var(--es-ui-scale));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: calc(6px * var(--es-ui-scale));
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.5);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(14px * var(--es-ui-scale));
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.es-settings-close:hover {
+    background: rgba(255, 68, 68, 0.15);
+    border-color: rgba(255, 68, 68, 0.3);
+    color: #ff4444;
+}
+
+/* Tabs */
+.es-settings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 calc(20px * var(--es-ui-scale));
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.es-settings-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.es-settings-tab {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: calc(10px * var(--es-ui-scale)) calc(16px * var(--es-ui-scale));
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.es-settings-tab:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.es-settings-tab.active {
+    color: var(--es-success);
+    border-bottom-color: var(--es-success);
+    text-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(16, 185, 129, 0.3);
+}
+
+/* Body */
+.es-settings-body {
+    padding: calc(16px * var(--es-ui-scale)) calc(20px * var(--es-ui-scale));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: calc(6px * var(--es-ui-scale));
+    flex: 1;
+}
+
+.es-settings-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.es-settings-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.es-settings-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+/* Section */
+.es-settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--es-ui-scale));
+}
+
+.es-settings-section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 700;
+    color: var(--es-success);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding-bottom: calc(4px * var(--es-ui-scale));
+    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    text-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(16, 185, 129, 0.3);
+}
+
+.es-settings-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: calc(6px * var(--es-ui-scale)) 0;
+}
+
+/* Row */
+.es-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(8px * var(--es-ui-scale)) calc(10px * var(--es-ui-scale));
+    border-radius: calc(6px * var(--es-ui-scale));
+    transition: background 0.12s ease;
+}
+
+.es-settings-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.es-settings-row-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(12px * var(--es-ui-scale));
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+}
+
+.es-settings-row-desc {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(10px * var(--es-ui-scale));
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.3px;
+    margin-top: calc(2px * var(--es-ui-scale));
+}
+
+.es-settings-actions {
+    display: flex;
+    gap: calc(8px * var(--es-ui-scale));
+}
+
+.es-settings-btn-small {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    padding: calc(8px * var(--es-ui-scale)) calc(14px * var(--es-ui-scale));
+    border-radius: calc(6px * var(--es-ui-scale));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.es-settings-btn-small:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.es-settings-btn-small:active {
+    transform: translateY(1px);
+}
+
+/* Toggle */
+.es-settings-toggle {
+    position: relative;
+    width: calc(38px * var(--es-ui-scale));
+    height: calc(20px * var(--es-ui-scale));
+    border-radius: calc(4px * var(--es-ui-scale));
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.es-settings-toggle.active {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.es-settings-toggle-knob {
+    position: absolute;
+    top: calc(2px * var(--es-ui-scale));
+    left: calc(2px * var(--es-ui-scale));
+    width: calc(14px * var(--es-ui-scale));
+    height: calc(14px * var(--es-ui-scale));
+    border-radius: calc(2px * var(--es-ui-scale));
+    background: rgba(255, 255, 255, 0.5);
+    transition: all 0.2s ease;
+}
+
+.es-settings-toggle.active .es-settings-toggle-knob {
+    left: calc(20px * var(--es-ui-scale));
+    background: var(--es-success);
+    box-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(16, 185, 129, 0.5);
+}
+
+/* Dropdown */
+.es-settings-dropdown {
+    position: relative;
+    min-width: calc(140px * var(--es-ui-scale));
+    flex-shrink: 0;
+}
+
+.es-settings-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(8px * var(--es-ui-scale));
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 600;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: calc(4px * var(--es-ui-scale));
+    padding: calc(6px * var(--es-ui-scale)) calc(12px * var(--es-ui-scale));
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.es-settings-dropdown-trigger:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.es-settings-dropdown.open .es-settings-dropdown-trigger {
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(16, 185, 129, 0.15);
+}
+
+.es-settings-dropdown-arrow {
+    font-size: calc(8px * var(--es-ui-scale));
+    color: rgba(255, 255, 255, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.es-settings-dropdown.open .es-settings-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.es-settings-dropdown-menu {
+    position: absolute;
+    top: calc(100% + calc(4px * var(--es-ui-scale)));
+    left: 0;
+    right: 0;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: calc(4px * var(--es-ui-scale));
+    overflow: hidden;
+    z-index: 10;
+    animation: esSettingsDropdownIn 0.15s ease-out;
+    max-height: calc(200px * var(--es-ui-scale));
+    overflow-y: auto;
+}
+
+@keyframes esSettingsDropdownIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.es-settings-dropdown-option {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    padding: calc(7px * var(--es-ui-scale)) calc(12px * var(--es-ui-scale));
+    cursor: pointer;
+    transition: all 0.1s ease;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.es-settings-dropdown-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+}
+
+.es-settings-dropdown-option.selected {
+    color: var(--es-success);
+    background: rgba(16, 185, 129, 0.1);
+    text-shadow: 0 0 calc(4px * var(--es-ui-scale)) rgba(16, 185, 129, 0.3);
+}
+
+/* Slider */
+.es-settings-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: calc(10px * var(--es-ui-scale));
+    flex-shrink: 0;
+}
+
+.es-settings-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(100px * var(--es-ui-scale));
+    height: calc(4px * var(--es-ui-scale));
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: calc(2px * var(--es-ui-scale));
+    outline: none;
+    cursor: pointer;
+}
+
+.es-settings-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(12px * var(--es-ui-scale));
+    height: calc(12px * var(--es-ui-scale));
+    border-radius: 50%;
+    background: var(--es-success);
+    box-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(16, 185, 129, 0.5);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+.es-settings-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.es-settings-slider-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 700;
+    color: var(--es-success);
+    min-width: calc(30px * var(--es-ui-scale));
+    text-align: right;
+    text-shadow: 0 0 calc(4px * var(--es-ui-scale)) rgba(16, 185, 129, 0.3);
+}
+
+/* Checkbox */
+.es-settings-checkbox {
+    display: flex;
+    align-items: center;
+    gap: calc(10px * var(--es-ui-scale));
+    cursor: pointer;
+    padding: calc(6px * var(--es-ui-scale)) calc(10px * var(--es-ui-scale));
+    border-radius: calc(4px * var(--es-ui-scale));
+    transition: background 0.12s ease;
+}
+
+.es-settings-checkbox:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.es-settings-checkbox-box {
+    width: calc(18px * var(--es-ui-scale));
+    height: calc(18px * var(--es-ui-scale));
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: calc(3px * var(--es-ui-scale));
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.es-settings-checkbox.checked .es-settings-checkbox-box {
+    background: rgba(234, 179, 8, 0.85);
+    border-color: rgba(234, 179, 8, 1);
+    box-shadow: 0 0 calc(6px * var(--es-ui-scale)) rgba(234, 179, 8, 0.3);
+}
+
+.es-settings-checkbox-check {
+    font-size: calc(11px * var(--es-ui-scale));
+    color: #000000;
+    font-weight: 900;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.es-settings-checkbox.checked .es-settings-checkbox-check {
+    opacity: 1;
+}
+
+.es-settings-checkbox-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(12px * var(--es-ui-scale));
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+}
+
+/* Footer */
+.es-settings-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: calc(10px * var(--es-ui-scale));
+    padding: calc(12px * var(--es-ui-scale)) calc(20px * var(--es-ui-scale));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.es-settings-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: calc(8px * var(--es-ui-scale)) calc(20px * var(--es-ui-scale));
+    border-radius: calc(6px * var(--es-ui-scale));
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.es-settings-btn-save {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: var(--es-success);
+}
+
+.es-settings-btn-save:hover {
+    background: rgba(16, 185, 129, 0.3);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 calc(10px * var(--es-ui-scale)) rgba(16, 185, 129, 0.2);
+}
+
+.es-settings-btn-cancel {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.es-settings-btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.es-settings-btn-reset {
+    background: rgba(255, 68, 68, 0.08);
+    border-color: rgba(255, 68, 68, 0.2);
+    color: rgba(255, 68, 68, 0.6);
+    margin-right: auto;
+}
+
+.es-settings-btn-reset:hover {
+    background: rgba(255, 68, 68, 0.15);
+    border-color: rgba(255, 68, 68, 0.35);
+    color: rgba(255, 68, 68, 0.85);
+}
+
+/* Empty state for no scripts detected */
+.es-settings-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: calc(40px * var(--es-ui-scale));
+    gap: calc(8px * var(--es-ui-scale));
+}
+
+.es-settings-empty-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(13px * var(--es-ui-scale));
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.es-settings-empty-desc {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: calc(11px * var(--es-ui-scale));
+    color: rgba(255, 255, 255, 0.3);
 }

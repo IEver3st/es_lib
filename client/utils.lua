@@ -1,18 +1,4 @@
---[[
-    Everest Lib - Client Utilities
-    Optimized helpers for client-side operations
-    
-    Performance focus:
-    - Cache natives at module level
-    - Use squared distance for comparisons
-    - Minimize per-frame allocations
-]]
-
 lib = lib or {}
-
--- ============================================================================
--- CACHED NATIVES (Critical for performance)
--- ============================================================================
 
 local PlayerPedId = PlayerPedId
 local PlayerId = PlayerId
@@ -26,20 +12,13 @@ local IsEntityDead = IsEntityDead
 local GetEntityHealth = GetEntityHealth
 local GetEntityModel = GetEntityModel
 local GetVehiclePedIsIn = GetVehiclePedIsIn
+local SendNUIMessage = SendNUIMessage
 
--- Math caching
 local sqrt = math.sqrt
+local pcall = pcall
 
--- ============================================================================
--- ENTITY POOL UTILITIES
--- ============================================================================
+local uiAppHandlers = {}
 
----Clear entities from a pool within radius using squared distance
----@param poolName string 'CPed', 'CVehicle', or 'CObject'
----@param centerCoords vector3 Center point for clearing
----@param radius number Radius in meters
----@param excludeEntity? number Entity to exclude (usually player ped)
----@return number count Number of entities deleted
 function lib.clearPool(poolName, centerCoords, radius, excludeEntity)
     local pool = GetGamePool(poolName)
     local radiusSq = radius * radius
@@ -66,12 +45,6 @@ function lib.clearPool(poolName, centerCoords, radius, excludeEntity)
     return count
 end
 
----Clear multiple pools at once (more efficient than calling clearPool multiple times)
----@param poolNames table Array of pool names
----@param centerCoords vector3
----@param radius number
----@param excludeEntity? number
----@return number total Total entities deleted
 function lib.clearPools(poolNames, centerCoords, radius, excludeEntity)
     local total = 0
     for i = 1, #poolNames do
@@ -80,13 +53,6 @@ function lib.clearPools(poolNames, centerCoords, radius, excludeEntity)
     return total
 end
 
----Find nearest entity in a pool
----@param poolName string
----@param centerCoords vector3
----@param maxRadius? number Maximum search radius (default 50)
----@param excludeEntity? number
----@return number|nil entity The nearest entity or nil
----@return number distance Distance to the entity (or math.huge if none found)
 function lib.findNearestInPool(poolName, centerCoords, maxRadius, excludeEntity)
     local pool = GetGamePool(poolName)
     maxRadius = maxRadius or 50.0
@@ -119,39 +85,25 @@ function lib.findNearestInPool(poolName, centerCoords, maxRadius, excludeEntity)
     return nil, math.huge
 end
 
--- ============================================================================
--- PED UTILITIES
--- ============================================================================
-
----Get player ped (uses cache if available, otherwise calls native)
----@return number ped
 function lib.getPed()
-    if lib.cache and lib.cache.ped then
+    if lib.cache and type(lib.cache.ped) == 'number' and lib.cache.ped > 0 then
         return lib.cache.ped
     end
     return PlayerPedId()
 end
 
----Get player ID (uses cache if available)
----@return number playerId
 function lib.getPlayerId()
-    if lib.cache and lib.cache.playerId then
+    if lib.cache and type(lib.cache.playerId) == 'number' and lib.cache.playerId >= 0 then
         return lib.cache.playerId
     end
     return PlayerId()
 end
 
----Check if player is in a vehicle
----@param includeLastVehicle? boolean Include last vehicle (default false)
----@return boolean
 function lib.isInVehicle(includeLastVehicle)
     local ped = lib.getPed()
     return GetVehiclePedIsIn(ped, includeLastVehicle or false) ~= 0
 end
 
----Get current vehicle or nil
----@param includeLastVehicle? boolean
----@return number|nil
 function lib.getCurrentVehicle(includeLastVehicle)
     local ped = lib.getPed()
     local vehicle = GetVehiclePedIsIn(ped, includeLastVehicle or false)
@@ -161,25 +113,14 @@ function lib.getCurrentVehicle(includeLastVehicle)
     return nil
 end
 
----Get player coordinates
----@return vector3
 function lib.getCoords()
     return GetEntityCoords(lib.getPed())
 end
 
----Get player heading
----@return number
 function lib.getHeading()
     return GetEntityHeading(lib.getPed())
 end
 
--- ============================================================================
--- VEHICLE UTILITIES  
--- ============================================================================
-
----Ensure player is in a vehicle, returns vehicle or nil with optional notification
----@param showNotify? boolean Show error notification if not in vehicle
----@return number|nil vehicle
 function lib.ensureVehicle(showNotify)
     local ped = lib.getPed()
     local vehicle = GetVehiclePedIsIn(ped, false)
@@ -194,12 +135,6 @@ function lib.ensureVehicle(showNotify)
     return vehicle
 end
 
--- ============================================================================
--- CAMERA UTILITIES
--- ============================================================================
-
----Get camera direction vector (optimized)
----@return vector3 direction
 function lib.getCamDirection()
     local rot = GetGameplayCamRot(2)
     local rotZ = math.rad(rot.z)
@@ -213,12 +148,6 @@ function lib.getCamDirection()
     )
 end
 
--- ============================================================================
--- CLIPBOARD UTILITY
--- ============================================================================
-
----Copy text to clipboard via NUI
----@param text string
 function lib.copyToClipboard(text)
     SendNUIMessage({
         action = 'copyToClipboard',
@@ -226,16 +155,96 @@ function lib.copyToClipboard(text)
     })
 end
 
--- ============================================================================
--- EXPORTS
--- ============================================================================
+function lib.registerUiApp(appId, handler)
+    if type(appId) ~= 'string' or appId == '' then
+        error('es_lib.registerUiApp: appId must be a non-empty string')
+    end
 
--- Pool utilities
+    if type(handler) ~= 'function' then
+        error('es_lib.registerUiApp: handler must be a function')
+    end
+
+    uiAppHandlers[appId] = handler
+    return true
+end
+
+function lib.unregisterUiApp(appId)
+    uiAppHandlers[appId] = nil
+    return true
+end
+
+function lib.openUiApp(appId, payload)
+    SendNUIMessage({
+        action = 'uiAppOpen',
+        data = {
+            id = appId,
+            payload = payload or {}
+        }
+    })
+end
+
+function lib.updateUiApp(appId, payload)
+    SendNUIMessage({
+        action = 'uiAppData',
+        data = {
+            id = appId,
+            payload = payload or {}
+        }
+    })
+end
+
+function lib.closeUiApp(appId)
+    SendNUIMessage({
+        action = 'uiAppClose',
+        data = {
+            id = appId
+        }
+    })
+end
+
+RegisterNUICallback('eslib:uiEvent', function(data, cb)
+    local appId = data and data.appId
+    local eventType = data and data.type
+    local payload = data and data.payload or {}
+    local handler = appId and uiAppHandlers[appId]
+
+    if type(handler) ~= 'function' then
+        cb({
+            ok = false,
+            error = 'unregistered_app'
+        })
+        return
+    end
+
+    local ok, result = pcall(handler, eventType, payload)
+    if not ok then
+        print(('^1[es_lib]^7 ui app handler "%s" failed: %s'):format(appId, result))
+        cb({
+            ok = false,
+            error = 'handler_error'
+        })
+        return
+    end
+
+    if type(result) == 'table' then
+        if result.ok == nil then
+            result.ok = true
+        end
+
+        cb(result)
+        return
+    end
+
+    cb({
+        ok = true,
+        result = result
+    })
+end)
+
 exports('clearPool', lib.clearPool)
 exports('clearPools', lib.clearPools)
 exports('findNearestInPool', lib.findNearestInPool)
 
--- Ped utilities
 exports('getPed', lib.getPed)
 exports('getPlayerId', lib.getPlayerId)
 exports('isInVehicle', lib.isInVehicle)
@@ -244,10 +253,13 @@ exports('getCoords', lib.getCoords)
 exports('getHeading', lib.getHeading)
 exports('ensureVehicle', lib.ensureVehicle)
 
--- Camera
 exports('getCamDirection', lib.getCamDirection)
 
--- Clipboard
 exports('copyToClipboard', lib.copyToClipboard)
+exports('registerUiApp', lib.registerUiApp)
+exports('unregisterUiApp', lib.unregisterUiApp)
+exports('openUiApp', lib.openUiApp)
+exports('updateUiApp', lib.updateUiApp)
+exports('closeUiApp', lib.closeUiApp)
 
 return lib

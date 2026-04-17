@@ -1,22 +1,9 @@
---[[
-    Everest Lib - Disable Controls Module
-    ox_lib compatible control disabling utility
-]]
-
--- ============================================================================
--- CACHED NATIVES
--- ============================================================================
-
 local DisableControlAction = DisableControlAction
 local DisablePlayerFiring = DisablePlayerFiring
 local DisableAllControlActions = DisableAllControlActions
 local PlayerPedId = PlayerPedId
 local PlayerId = PlayerId
 local Wait = Wait
-
--- ============================================================================
--- CONTROL GROUPS
--- ============================================================================
 
 local CONTROL_GROUPS = {
     movement = {30, 31, 32, 33, 34, 35, 36, 21, 22, 44, 45, 269, 270},
@@ -49,16 +36,9 @@ local CONTROL_MAP = {
     INPUT_COVER = 44
 }
 
--- ============================================================================
--- DISABLE CONTROLS CLASS
--- ============================================================================
-
 local DisableControls = {}
 DisableControls.__index = DisableControls
 
----Create a new control disabling instance
----@param options? table Configuration options
----@return table DisableControls instance
 local function disableControls(options)
     options = options or {}
     
@@ -116,9 +96,6 @@ local function disableControls(options)
     return self
 end
 
----Add a control to disable
----@param control number|string Control ID or name
----@return self
 function DisableControls:Add(control)
     if type(control) == 'string' then
         control = CONTROL_MAP[control] or control
@@ -131,9 +108,6 @@ function DisableControls:Add(control)
     return self
 end
 
----Remove a control from being disabled
----@param control number|string Control ID or name
----@return self
 function DisableControls:Remove(control)
     if type(control) == 'string' then
         control = CONTROL_MAP[control] or control
@@ -146,14 +120,11 @@ function DisableControls:Remove(control)
     return self
 end
 
----Clear all individually added controls
----@return self
 function DisableControls:Clear()
     self._controls = {}
     return self
 end
 
----Stop disabling controls and clean up
 function DisableControls:Destroy()
     self._active = false
     self._controls = {}
@@ -161,15 +132,7 @@ end
 
 DisableControls.destroy = DisableControls.Destroy
 
--- ============================================================================
--- EXPORTS
--- ============================================================================
-
 exports('disableControls', disableControls)
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.disableControls = disableControls
 
