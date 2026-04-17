@@ -1101,7 +1101,7 @@ function NotificationContainer({ notifications, position, onRemove }) {
     return React.createElement('div', { id: 'notify-container', className: position || 'top-right' },
         notifications.map(notif =>
             React.createElement(Notification, {
-                key: notif.id,
+                key: `${notif.id}-${notif.refreshTick || 0}`,
                 ...notif,
                 onRemove
             })
@@ -1323,7 +1323,6 @@ function normalizeOption(option) {
         checked: hasCheck ? option.checked : null,
         hasCheck,
         scrollIndex,
-        args: option.args || {},
         close: option.close !== false
     };
 }
@@ -1378,8 +1377,6 @@ function Menu({ open, id, title, subtitle, position, canClose, disableInput, opt
         if (clamped === selectedRef.current && secondary == null) return;
 
         const opt = opts[clamped - 1];
-        const args = (opt && opt.args) || {};
-
         selectedRef.current = clamped;
         setMenu(prev => {
             const nextTooltip = opt?.description || '';
@@ -1389,8 +1386,7 @@ function Menu({ open, id, title, subtitle, position, canClose, disableInput, opt
         nuiPost('es_menu_selected', {
             id,
             selected: clamped,
-            secondary: secondary ?? false,
-            args
+            secondary: secondary ?? false
         });
     }, [id, setMenu]);
 
@@ -1424,8 +1420,7 @@ function Menu({ open, id, title, subtitle, position, canClose, disableInput, opt
         nuiPost('es_menu_sideScroll', {
             id,
             selected: idx + 1,
-            scrollIndex: nextIndex,
-            args: nextOption.args || {}
+            scrollIndex: nextIndex
         });
     }, [id, setMenu]);
 
@@ -1444,8 +1439,7 @@ function Menu({ open, id, title, subtitle, position, canClose, disableInput, opt
         nuiPost('es_menu_check', {
             id,
             selected: idx + 1,
-            checked: nextChecked,
-            args: nextOption.args || {}
+            checked: nextChecked
         });
     }, [id, setMenu]);
 
@@ -1458,8 +1452,7 @@ function Menu({ open, id, title, subtitle, position, canClose, disableInput, opt
         const res = await nuiPost('es_menu_submit', {
             id,
             selected: idx + 1,
-            scrollIndex: opt.scrollIndex || 1,
-            args: opt.args || {}
+            scrollIndex: opt.scrollIndex || 1
         });
 
         if (res && res.close) {
@@ -1636,12 +1629,8 @@ function AlertDialog({ open, header, content, centered, cancel, labels, style, o
     },
         React.createElement('div', {
             className: dialogClass,
-
-            onMouseDown: () => { },
-            onClick: () => { },
-            onMouseEnter: () => { },
-            onMouseMove: () => { },
-            onMouseUp: () => { },
+            onMouseDown: (e) => e.stopPropagation(),
+            onClick: (e) => e.stopPropagation(),
             onContextMenu: (e) => e.preventDefault()
         },
 
@@ -2163,6 +2152,257 @@ function RadialMenu({ open, id, items, canGoBack, visible }) {
 }
 
 // ============================================================================
+// CENTRAL SETTINGS PANEL
+// ============================================================================
+
+function SettingsDropdown({ value, options, onChange }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClick = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [open]);
+
+    const selected = options.find(o => o.value === value);
+
+    return React.createElement('div', { className: `es-settings-dropdown ${open ? 'open' : ''}`, ref },
+        React.createElement('div', { className: 'es-settings-dropdown-trigger', onClick: () => setOpen(!open) },
+            React.createElement('span', null, selected ? selected.label : String(value)),
+            React.createElement('span', { className: 'es-settings-dropdown-arrow' }, '\u25BC')
+        ),
+        open && React.createElement('div', { className: 'es-settings-dropdown-menu' },
+            options.map(opt => React.createElement('div', {
+                key: opt.value,
+                className: `es-settings-dropdown-option ${opt.value === value ? 'selected' : ''}`,
+                onClick: () => { onChange(opt.value); setOpen(false); }
+            }, opt.label))
+        )
+    );
+}
+
+function SettingsField({ field, value, onChange, onAction, scriptId }) {
+    const type = field.type || 'toggle';
+
+    if (type === 'toggle') {
+        return React.createElement('div', { className: 'es-settings-row' },
+            React.createElement('div', null,
+                React.createElement('div', { className: 'es-settings-row-label' }, field.label),
+                field.description && React.createElement('div', { className: 'es-settings-row-desc' }, field.description)
+            ),
+            React.createElement('div', {
+                className: `es-settings-toggle ${value ? 'active' : ''}`,
+                onClick: () => onChange(!value)
+            }, React.createElement('div', { className: 'es-settings-toggle-knob' }))
+        );
+    }
+
+    if (type === 'select') {
+        return React.createElement('div', { className: 'es-settings-row' },
+            React.createElement('div', null,
+                React.createElement('div', { className: 'es-settings-row-label' }, field.label),
+                field.description && React.createElement('div', { className: 'es-settings-row-desc' }, field.description)
+            ),
+            React.createElement(SettingsDropdown, {
+                value: value,
+                options: field.options || [],
+                onChange: onChange
+            })
+        );
+    }
+
+    if (type === 'slider') {
+        const min = field.min ?? 0;
+        const max = field.max ?? 100;
+        const suffix = field.suffix || '';
+        return React.createElement('div', { className: 'es-settings-row' },
+            React.createElement('div', null,
+                React.createElement('div', { className: 'es-settings-row-label' }, field.label),
+                field.description && React.createElement('div', { className: 'es-settings-row-desc' }, field.description)
+            ),
+            React.createElement('div', { className: 'es-settings-slider-wrap' },
+                React.createElement('input', {
+                    type: 'range',
+                    className: 'es-settings-slider',
+                    min, max,
+                    value: value ?? min,
+                    onChange: (e) => onChange(Number(e.target.value))
+                }),
+                React.createElement('span', { className: 'es-settings-slider-value' }, `${value ?? min}${suffix}`)
+            )
+        );
+    }
+
+    if (type === 'checkbox') {
+        return React.createElement('div', {
+            className: `es-settings-checkbox ${value ? 'checked' : ''}`,
+            onClick: () => onChange(!value)
+        },
+            React.createElement('div', { className: 'es-settings-checkbox-box' },
+                React.createElement('span', { className: 'es-settings-checkbox-check' }, '\u2713')
+            ),
+            React.createElement('span', { className: 'es-settings-checkbox-label' }, field.label)
+        );
+    }
+
+    if (type === 'action') {
+        return React.createElement('div', { className: 'es-settings-row' },
+            React.createElement('div', null,
+                React.createElement('div', { className: 'es-settings-row-label' }, field.label),
+                field.description && React.createElement('div', { className: 'es-settings-row-desc' }, field.description)
+            ),
+            React.createElement('div', { className: 'es-settings-actions' },
+                (field.actions || []).map((act) => React.createElement('button', {
+                    key: act.action,
+                    className: 'es-settings-btn es-settings-btn-small',
+                    onClick: () => onAction && act?.action && onAction(scriptId, act.action)
+                }, act.label || act.action))
+            )
+        );
+    }
+
+    return null;
+}
+
+function SettingsPanel({ visible, scripts, values, onSave, onClose }) {
+    const [local, setLocal] = useState({});
+    const [activeTab, setActiveTab] = useState(null);
+
+    const scriptKeys = Object.keys(scripts || {});
+
+    useEffect(() => {
+        if (visible && values) {
+            setLocal({ ...values });
+            if (scriptKeys.length > 0 && (!activeTab || !scripts[activeTab])) {
+                setActiveTab(scriptKeys[0]);
+            }
+        }
+    }, [visible, values]);
+
+    const set = useCallback((key, value) => {
+        setLocal(prev => ({ ...prev, [key]: value }));
+    }, []);
+
+    const handleSave = useCallback(() => {
+        onSave(local);
+    }, [local, onSave]);
+
+    const handleReset = useCallback(() => {
+        const defaults = {};
+        for (const scriptId of scriptKeys) {
+            const script = scripts[scriptId];
+            if (!script || !script.settings) continue;
+            for (const field of script.settings) {
+                if (field.key && field.default !== undefined) {
+                    defaults[field.key] = field.default;
+                }
+            }
+        }
+        setLocal(defaults);
+    }, [scripts, scriptKeys]);
+
+    const handleOverlayClick = useCallback((e) => {
+        if (e.target === e.currentTarget) onClose();
+    }, [onClose]);
+
+    const handleAction = useCallback(async (scriptId, action) => {
+        try {
+            await fetch(`https://${GetParentResourceName()}/eslib:settingsAction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify({ scriptId, action })
+            });
+        } catch (e) {
+            uiDebugLog('settingsAction post failed', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!visible) return;
+        const handleKey = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [visible, onClose]);
+
+    if (!visible) return null;
+
+    const currentScript = activeTab && scripts[activeTab] ? scripts[activeTab] : null;
+
+    return React.createElement('div', { className: 'es-settings-overlay', onClick: handleOverlayClick },
+        React.createElement('div', { className: 'es-settings-modal' },
+            // Header
+            React.createElement('div', { className: 'es-settings-header' },
+                React.createElement('div', { className: 'es-settings-title' },
+                    React.createElement('span', { className: 'accent' }, 'ES'),
+                    ' Settings'
+                ),
+                React.createElement('button', { className: 'es-settings-close', onClick: onClose }, '\u2715')
+            ),
+            // Tabs
+            scriptKeys.length > 1 && React.createElement('div', { className: 'es-settings-tabs' },
+                scriptKeys.map(key => React.createElement('button', {
+                    key,
+                    className: `es-settings-tab ${activeTab === key ? 'active' : ''}`,
+                    onClick: () => setActiveTab(key)
+                }, scripts[key].label || key))
+            ),
+            // Body
+            React.createElement('div', { className: 'es-settings-body' },
+                currentScript ? renderScriptSettings(currentScript, local, set, activeTab, handleAction)
+                    : React.createElement('div', { className: 'es-settings-empty' },
+                        React.createElement('div', { className: 'es-settings-empty-title' }, 'No Scripts Detected'),
+                        React.createElement('div', { className: 'es-settings-empty-desc' }, 'No es_ scripts have registered settings.')
+                    )
+            ),
+            // Footer
+            React.createElement('div', { className: 'es-settings-footer' },
+                React.createElement('button', { className: 'es-settings-btn es-settings-btn-reset', onClick: handleReset }, 'Reset'),
+                React.createElement('button', { className: 'es-settings-btn es-settings-btn-cancel', onClick: onClose }, 'Cancel'),
+                React.createElement('button', { className: 'es-settings-btn es-settings-btn-save', onClick: handleSave }, 'Save')
+            )
+        )
+    );
+}
+
+function renderScriptSettings(script, local, set, scriptId, onAction) {
+    const sections = script.sections || [{ label: null, keys: (script.settings || []).map(f => f.key) }];
+    const settingsMap = {};
+    for (const f of (script.settings || [])) {
+        if (f.key) settingsMap[f.key] = f;
+    }
+
+    const elements = [];
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        if (i > 0) {
+            elements.push(React.createElement('div', { key: `div-${i}`, className: 'es-settings-divider' }));
+        }
+        elements.push(React.createElement('div', { key: `sec-${i}`, className: 'es-settings-section' },
+            section.label && React.createElement('div', { className: 'es-settings-section-title' }, section.label),
+            (section.keys || []).map(key => {
+                const field = settingsMap[key];
+                if (!field) return null;
+                return React.createElement(SettingsField, {
+                    key: key,
+                    field: field,
+                    value: local[key],
+                    onChange: (val) => set(key, val),
+                    onAction,
+                    scriptId
+                });
+            })
+        ));
+    }
+    return React.createElement(React.Fragment, null, ...elements);
+}
+
+// ============================================================================
 // MAIN APP
 // ============================================================================
 
@@ -2244,12 +2484,17 @@ function App() {
 
     const [uiApps, setUiApps] = useState({});
 
+    const [settingsPanel, setSettingsPanel] = useState({
+        open: false,
+        scripts: {},
+        values: {}
+    });
+
     const removeNotification = useCallback((id) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     }, []);
 
     const addNotification = useCallback((data) => {
-        const id = data.id || `notify-${++notifyIdCounter}`;
         const duration = data.duration ?? 3000;
         const persistent = data.persistent || duration === 0;
 
@@ -2257,19 +2502,60 @@ function App() {
             setNotifyPosition(data.position);
         }
 
-        const notification = {
-            id,
-            type: data.type || 'info',
-            title: data.title,
-            description: data.description,
-            duration,
-            showDuration: data.showDuration,
-            persistent
-        };
+        const typeNorm = data.type || 'info';
+        const titleNorm = data.title == null ? '' : String(data.title);
+        const descNorm = data.description == null ? '' : String(data.description);
+        const dedupeKey = `${typeNorm}\u0000${titleNorm}\u0000${descNorm}`;
+        const allowDedupe = data.dedupe !== false;
 
         setNotifications(prev => {
-            const existing = data.id ? prev.filter(n => n.id !== data.id) : [...prev];
-            return [...existing, notification];
+            if (data.id) {
+                const id = data.id;
+                const notification = {
+                    id,
+                    dedupeKey,
+                    type: typeNorm,
+                    title: data.title,
+                    description: data.description,
+                    duration,
+                    showDuration: data.showDuration,
+                    persistent
+                };
+                const without = prev.filter(n => n.id !== id);
+                return [...without, notification];
+            }
+
+            if (allowDedupe) {
+                const dupIdx = prev.findIndex(n => n.dedupeKey === dedupeKey);
+                if (dupIdx !== -1) {
+                    const next = prev.slice();
+                    const kept = next[dupIdx];
+                    next[dupIdx] = {
+                        ...kept,
+                        refreshTick: (kept.refreshTick || 0) + 1,
+                        type: typeNorm,
+                        title: data.title,
+                        description: data.description,
+                        duration,
+                        showDuration: data.showDuration,
+                        persistent
+                    };
+                    return next;
+                }
+            }
+
+            const id = `notify-${++notifyIdCounter}`;
+            const notification = {
+                id,
+                dedupeKey,
+                type: typeNorm,
+                title: data.title,
+                description: data.description,
+                duration,
+                showDuration: data.showDuration,
+                persistent
+            };
+            return [...prev, notification];
         });
     }, []);
 
@@ -2320,6 +2606,31 @@ function App() {
         }
     }, []);
 
+    const handleSettingsSave = useCallback(async (values) => {
+        setSettingsPanel(prev => ({ ...prev, open: false }));
+        try {
+            await fetch(`https://${GetParentResourceName()}/eslib:settingsSave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify(values)
+            });
+        } catch (e) {
+            uiDebugLog('settingsSave post failed', e);
+        }
+    }, []);
+
+    const handleSettingsClose = useCallback(async () => {
+        setSettingsPanel(prev => ({ ...prev, open: false }));
+        try {
+            await fetch(`https://${GetParentResourceName()}/eslib:settingsClose`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify({})
+            });
+        } catch (e) {
+            uiDebugLog('settingsClose post failed', e);
+        }
+    }, []);
 
     const openMenu = useCallback((data) => {
         const normalizedOptions = Array.isArray(data?.options)
@@ -2565,6 +2876,16 @@ function App() {
                         visible: true
                     }));
                     break;
+                case 'settingsOpen':
+                    setSettingsPanel({
+                        open: true,
+                        scripts: data?.scripts || {},
+                        values: data?.values || {}
+                    });
+                    break;
+                case 'settingsClose':
+                    setSettingsPanel(prev => ({ ...prev, open: false }));
+                    break;
             }
         };
 
@@ -2586,7 +2907,14 @@ function App() {
         React.createElement(HelpBar, { ...help }),
         React.createElement(RadialMenu, { ...radial }),
         React.createElement(WeatherZoneEditorApp, { appState: uiApps[WEATHER_EDITOR_APP_ID], setUiApps }),
-        React.createElement(Menu, { ...menu, setMenu })
+        React.createElement(Menu, { ...menu, setMenu }),
+        React.createElement(SettingsPanel, {
+            visible: settingsPanel.open,
+            scripts: settingsPanel.scripts,
+            values: settingsPanel.values,
+            onSave: handleSettingsSave,
+            onClose: handleSettingsClose
+        })
     );
 }
 

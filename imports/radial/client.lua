@@ -1,13 +1,3 @@
---[[
-    Everest Lib - Radial Menu Module
-    High-performance radial menu based on ox_lib's architecture
-    with es_lib's HUD design language.
-]]
-
--- ============================================================================
--- CACHED NATIVES
--- ============================================================================
-
 local SetNuiFocus = SetNuiFocus
 local SetCursorLocation = SetCursorLocation
 local SendNUIMessage = SendNUIMessage
@@ -19,37 +9,13 @@ local PlayerId = PlayerId
 local IsPauseMenuActive = IsPauseMenuActive
 local IsNuiFocused = IsNuiFocused
 
--- ============================================================================
--- STATE
--- ============================================================================
-
----@class RadialItem
----@field id string Unique identifier for the item
----@field label string Display label
----@field icon? string Icon (emoji, FontAwesome class, or URL)
----@field iconColor? string Icon color override
----@field menu? string ID of submenu to navigate to
----@field onSelect? fun(currentMenu: string?, itemIndex: number) Callback when selected
----@field keepOpen? boolean Keep menu open after selection
-
----@class RadialMenu
----@field id string Menu identifier
----@field items RadialItem[] Menu items
-
 local isOpen = false
 local isDisabled = false
-local menus = {}           -- Registered submenus { [id] = { items = {...} } }
-local menuItems = {}       -- Global menu items (shown on root)
-local menuHistory = {}     -- Navigation breadcrumb for submenus
-local currentRadial = nil  -- Current submenu ID (nil = global/root menu)
+local menus = {}
+local menuItems = {}
+local menuHistory = {}
+local currentRadial = nil
 
--- ============================================================================
--- INTERNAL HELPERS
--- ============================================================================
-
----Sanitize item for NUI (strip functions, keep only serializable data)
----@param item RadialItem
----@return table
 local function sanitizeItem(item)
     return {
         id = item.id,
@@ -61,8 +27,6 @@ local function sanitizeItem(item)
     }
 end
 
----Build the items array for NUI based on current menu state
----@return table[]
 local function buildNuiItems()
     local items
     
@@ -81,9 +45,6 @@ local function buildNuiItems()
     return sanitized
 end
 
----Get the raw item by index (1-based) from current menu
----@param index number
----@return RadialItem?
 local function getItemByIndex(index)
     local items
     
@@ -97,7 +58,6 @@ local function getItemByIndex(index)
     return items[index]
 end
 
----Send radial state to NUI
 local function refreshRadial()
     if not isOpen then return end
     
@@ -111,10 +71,6 @@ local function refreshRadial()
     })
 end
 
--- ============================================================================
--- CONTROL THREAD (runs only while menu is open)
--- ============================================================================
-
 local controlThread = nil
 
 local function startControlThread()
@@ -123,26 +79,19 @@ local function startControlThread()
     controlThread = CreateThread(function()
         while isOpen do
             DisablePlayerFiring(PlayerId(), true)
-            DisableControlAction(0, 1, true)   -- Look Left/Right
-            DisableControlAction(0, 2, true)   -- Look Up/Down  
-            DisableControlAction(0, 142, true) -- MeleeAttackAlternate
-            DisableControlAction(2, 199, true) -- Pause Menu
-            DisableControlAction(2, 200, true) -- Pause Menu Alt
+            DisableControlAction(0, 1, true)
+            DisableControlAction(0, 2, true)
+            DisableControlAction(0, 142, true)
+            DisableControlAction(2, 199, true)
+            DisableControlAction(2, 200, true)
             Wait(0)
         end
         controlThread = nil
     end)
 end
 
--- ============================================================================
--- PUBLIC API
--- ============================================================================
-
----Add item(s) to the global radial menu
----@param items RadialItem|RadialItem[]
 local function addRadialItem(items)
     if items.id then
-        -- Single item
         items = { items }
     end
     
@@ -152,7 +101,6 @@ local function addRadialItem(items)
             error('lib.addRadialItem: item requires an id')
         end
         
-        -- Check for existing item with same id, update it
         local found = false
         for j = 1, #menuItems do
             if menuItems[j].id == item.id then
@@ -170,9 +118,6 @@ local function addRadialItem(items)
     refreshRadial()
 end
 
----Remove an item from the global radial menu by ID
----@param id string
----@return boolean
 local function removeRadialItem(id)
     for i = #menuItems, 1, -1 do
         if menuItems[i].id == id then
@@ -184,14 +129,11 @@ local function removeRadialItem(id)
     return false
 end
 
----Clear all items from the global radial menu
 local function clearRadialItems()
     table.wipe(menuItems)
     refreshRadial()
 end
 
----Register a submenu
----@param data RadialMenu
 local function registerRadial(data)
     if not data.id then
         error('lib.registerRadial: menu requires an id')
@@ -203,9 +145,6 @@ local function registerRadial(data)
     }
 end
 
----Show the radial menu (opens to global menu or specified submenu)
----@param menuId? string Optional submenu ID to open directly
----@return boolean
 local function showRadial(menuId)
     if isDisabled then return false end
     if isOpen then return false end
@@ -250,8 +189,6 @@ local function showRadial(menuId)
     return true
 end
 
----Hide the radial menu
----@param skipTransition? boolean Skip the close animation
 local function hideRadial(skipTransition)
     if not isOpen then return end
     
@@ -267,17 +204,13 @@ local function hideRadial(skipTransition)
     SetNuiFocus(false, false)
 end
 
----Navigate to a submenu
----@param menuId string
 local function navigateToMenu(menuId)
     local menu = menus[menuId]
     if not menu then return end
     
-    -- Push current menu to history
     menuHistory[#menuHistory + 1] = currentRadial
     currentRadial = menuId
     
-    -- Transition animation
     SendNUIMessage({ action = 'radialTransitionOut' })
     Wait(100)
     
@@ -293,7 +226,6 @@ local function navigateToMenu(menuId)
     end
 end
 
----Go back to the previous menu
 local function radialBack()
     if #menuHistory == 0 then
         hideRadial()
@@ -317,8 +249,6 @@ local function radialBack()
     end
 end
 
----Disable or enable the radial menu
----@param state boolean
 local function disableRadial(state)
     isDisabled = state
     if state and isOpen then
@@ -326,48 +256,35 @@ local function disableRadial(state)
     end
 end
 
----Check if radial is currently open
----@return boolean
 local function isRadialOpen()
     return isOpen
 end
 
----Check if radial is disabled
----@return boolean
 local function isRadialDisabled()
     return isDisabled
 end
 
----Get the current submenu ID (nil if on global menu)
----@return string?
 local function getCurrentRadialId()
     return currentRadial
 end
 
--- ============================================================================
--- NUI CALLBACKS
--- ============================================================================
-
 RegisterNUICallback('radialClick', function(data, cb)
     cb('ok')
     
-    local index = (data.index or 0) + 1  -- Convert 0-based to 1-based
+    local index = (data.index or 0) + 1
     local item = getItemByIndex(index)
     
     if not item then return end
     
-    -- Navigate to submenu
     if item.menu then
         navigateToMenu(item.menu)
         return
     end
     
-    -- Close menu unless keepOpen
     if not item.keepOpen then
         hideRadial()
     end
     
-    -- Execute callback
     if item.onSelect then
         item.onSelect(currentRadial, index)
     end
@@ -383,10 +300,6 @@ RegisterNUICallback('radialClose', function(_, cb)
     hideRadial()
 end)
 
--- ============================================================================
--- RESOURCE CLEANUP
--- ============================================================================
-
 AddEventHandler('onClientResourceStop', function(resourceName)
     if resourceName == GetCurrentResourceName() then
         if isOpen then
@@ -394,10 +307,6 @@ AddEventHandler('onClientResourceStop', function(resourceName)
         end
     end
 end)
-
--- ============================================================================
--- EXPORTS
--- ============================================================================
 
 exports('addRadialItem', addRadialItem)
 exports('removeRadialItem', removeRadialItem)
@@ -409,10 +318,6 @@ exports('disableRadial', disableRadial)
 exports('isRadialOpen', isRadialOpen)
 exports('isRadialDisabled', isRadialDisabled)
 exports('getCurrentRadialId', getCurrentRadialId)
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.addRadialItem = addRadialItem
 lib.removeRadialItem = removeRadialItem

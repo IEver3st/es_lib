@@ -1,12 +1,3 @@
---[[
-    Everest Lib - Zones Module
-    ox_lib compatible zone system with polygon, box, and sphere zones
-]]
-
--- ============================================================================
--- CACHED NATIVES
--- ============================================================================
-
 local GetEntityCoords = GetEntityCoords
 local PlayerPedId = PlayerPedId
 local DrawLine = DrawLine
@@ -21,17 +12,9 @@ local abs = math.abs
 local min = math.min
 local max = math.max
 
--- ============================================================================
--- ZONE STORAGE
--- ============================================================================
-
 local zones = {}
 local zoneId = 0
 local checkInterval = 250
-
--- ============================================================================
--- POINT IN POLYGON (2D check with height tolerance)
--- ============================================================================
 
 local function pointInPolygon(x, y, points)
     local inside = false
@@ -51,10 +34,6 @@ local function pointInPolygon(x, y, points)
     return inside
 end
 
--- ============================================================================
--- ZONE BASE METHODS
--- ============================================================================
-
 local ZoneMethods = {}
 ZoneMethods.__index = ZoneMethods
 
@@ -62,13 +41,6 @@ function ZoneMethods:remove()
     zones[self.id] = nil
 end
 
--- ============================================================================
--- POLYGON ZONE
--- ============================================================================
-
----Create a polygon zone
----@param data table Zone configuration
----@return table zone The zone object
 local function poly(data)
     zoneId = zoneId + 1
     
@@ -103,7 +75,7 @@ local function poly(data)
         points = points,
         thickness = thickness,
         minZ = minZ,
-        maxZ = minZ + thickness,
+        maxZ = maxZ + thickness,
         minX = minX,
         maxX = maxX,
         minY = minY,
@@ -136,13 +108,6 @@ local function poly(data)
     return zone
 end
 
--- ============================================================================
--- BOX ZONE
--- ============================================================================
-
----Create a box zone
----@param data table Zone configuration
----@return table zone The zone object
 local function box(data)
     zoneId = zoneId + 1
     
@@ -203,13 +168,6 @@ local function box(data)
     return zone
 end
 
--- ============================================================================
--- SPHERE ZONE
--- ============================================================================
-
----Create a sphere zone
----@param data table Zone configuration
----@return table zone The zone object
 local function sphere(data)
     zoneId = zoneId + 1
     
@@ -251,10 +209,6 @@ local function sphere(data)
     return zone
 end
 
--- ============================================================================
--- ZONE TICK HANDLER
--- ============================================================================
-
 CreateThread(function()
     while true do
         local ped = PlayerPedId()
@@ -283,10 +237,6 @@ CreateThread(function()
         Wait(checkInterval)
     end
 end)
-
--- ============================================================================
--- DEBUG RENDERING
--- ============================================================================
 
 CreateThread(function()
     while true do
@@ -330,19 +280,11 @@ CreateThread(function()
     end
 end)
 
--- ============================================================================
--- ZONES TABLE
--- ============================================================================
-
 local zonesModule = {
     poly = poly,
     box = box,
     sphere = sphere
 }
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.zones = zonesModule
 

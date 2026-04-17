@@ -1,29 +1,3 @@
---[[
-    Everest Lib - Client Notification System
-    Lazy-loaded module that returns notify functions
-    
-    Usage: lib.notify({ type = 'success', description = 'Hello!' })
-]]
-
----@alias NotifyPosition 'top' | 'top-right' | 'top-left' | 'bottom' | 'bottom-right' | 'bottom-left'
----@alias NotifyType 'info' | 'inform' | 'success' | 'warning' | 'error'
-
----@class SoundData
----@field name string Sound name
----@field set string Sound set/bank name
-
----@class NotifyData
----@field id? string Unique ID (for updating/removing)
----@field title? string Notification title
----@field description? string Notification message
----@field duration? number Duration in ms (default 3000, 0 = persistent)
----@field position? NotifyPosition Position on screen
----@field type? NotifyType Notification type/style
----@field showDuration? boolean Show duration progress bar
----@field sound? boolean|SoundData Play sound (true = default, or custom sound data)
----@field persistent? boolean If true, notification stays until manually closed
-
--- Sound presets for quick access
 local SoundPresets = {
     success = { name = 'MEDAL_UP', set = 'HUD_MINI_GAME_SOUNDSET' },
     error = { name = 'ERROR', set = 'HUD_FRONTEND_DEFAULT_SOUNDSET' },
@@ -54,9 +28,6 @@ local function getDefaultPosition()
     return getSetting('notifyPosition') or 'top-right'
 end
 
----Play a native GTA sound
----@param sound SoundData|boolean
----@param notifyType? string
 local function playSound(sound, notifyType)
     if not isSoundEnabled() then
         return
@@ -77,36 +48,47 @@ local function playSound(sound, notifyType)
     ReleaseSoundId(soundId)
 end
 
--- ============================================================================
--- NOTIFY FUNCTION
--- ============================================================================
+local notifyDedupeSoundKeyLast = nil
+local notifyDedupeSoundAt = 0
+local NOTIFY_DEDUPE_SOUND_MS = 400
 
----Send a notification to the player
----@param data NotifyData|string
----@return string|nil id The notification ID if provided
+local function notifyDedupeSoundKey(data)
+    local t = data.type or 'info'
+    local title = data.title
+    local desc = data.description
+    if title == nil then title = '' else title = tostring(title) end
+    if desc == nil then desc = '' else desc = tostring(desc) end
+    return t .. '\0' .. title .. '\0' .. desc
+end
+
 local function notify(data)
-    -- Support simple string notifications
     if type(data) == 'string' then
         data = { description = data }
     end
 
-    -- Defaults
     data.type = data.type or 'info'
     data.position = data.position or getDefaultPosition()
     
-    -- Handle persistent notifications
     if data.persistent then
         data.duration = 0
     else
         data.duration = data.duration or 3000
     end
     
-    -- Play sound if requested
     if data.sound then
-        playSound(data.sound, data.type)
+        local now = GetGameTimer()
+        local sk = notifyDedupeSoundKey(data)
+        local skipSound = false
+        if data.dedupe ~= false then
+            skipSound = sk == notifyDedupeSoundKeyLast and (now - notifyDedupeSoundAt) < NOTIFY_DEDUPE_SOUND_MS
+        end
+        if not skipSound then
+            playSound(data.sound, data.type)
+            notifyDedupeSoundKeyLast = sk
+            notifyDedupeSoundAt = now
+        end
     end
 
-    -- Don't send sound data to NUI
     local nuiData = {}
     for k, v in pairs(data) do
         if k ~= 'sound' then
@@ -122,12 +104,6 @@ local function notify(data)
     return data.id
 end
 
--- ============================================================================
--- HELPER FUNCTIONS
--- ============================================================================
-
----Hide a notification by ID
----@param id string
 local function hideNotify(id)
     SendNUIMessage({
         action = 'hideNotify',
@@ -135,62 +111,30 @@ local function hideNotify(id)
     })
 end
 
----Clear all active notifications
 local function clearNotifications()
     SendNUIMessage({
         action = 'clearNotifications'
     })
 end
 
----@param msg string
----@param title? string
----@param sound? boolean|SoundData
 local function notifySuccess(msg, title, sound)
     notify({ type = 'success', description = msg, title = title, sound = sound })
 end
 
----@param msg string
----@param title? string
----@param sound? boolean|SoundData
 local function notifyError(msg, title, sound)
     notify({ type = 'error', description = msg, title = title, sound = sound })
 end
 
----@param msg string
----@param title? string
----@param sound? boolean|SoundData
 local function notifyWarning(msg, title, sound)
     notify({ type = 'warning', description = msg, title = title, sound = sound })
 end
 
----@param msg string
----@param title? string
----@param sound? boolean|SoundData
 local function notifyInfo(msg, title, sound)
     notify({ type = 'info', description = msg, title = title, sound = sound })
 end
 
--- ============================================================================
--- PROGRESS BAR SYSTEM
--- ============================================================================
-
----@class ProgressData
----@field duration number Duration in ms
----@field label? string Progress label text
----@field position? 'bottom' | 'middle' Position on screen
----@field style? 'bar' | 'circle' Progress UI style
----@field useWhileDead? boolean Allow while dead
----@field canCancel? boolean Allow cancellation with right-click
----@field disable? table { move?: boolean, car?: boolean, combat?: boolean, mouse?: boolean }
----@field anim? table { dict?: string, clip: string, flag?: number, blendIn?: number, blendOut?: number, scenario?: string }
----@field prop? table { model: string, bone?: number, pos?: vector3, rot?: vector3 }
-
 local activeProgress = nil
 
----Request an animation dictionary with timeout
----@param dict string
----@param timeout? number Timeout in ms (default 5000)
----@return boolean
 local function requestAnimDict(dict, timeout)
     if HasAnimDictLoaded(dict) then return true end
     
@@ -208,10 +152,6 @@ local function requestAnimDict(dict, timeout)
     return true
 end
 
----Request a model with timeout
----@param model string|number
----@param timeout? number Timeout in ms (default 5000)
----@return boolean
 local function requestModel(model, timeout)
     if type(model) == 'string' then
         model = joaat(model)
@@ -233,9 +173,6 @@ local function requestModel(model, timeout)
     return true
 end
 
----Start a progress bar
----@param data ProgressData
----@return boolean completed True if completed, false if cancelled
 local function progress(data)
     if activeProgress then
         return false
@@ -245,9 +182,11 @@ local function progress(data)
     local completed = true
     local startTime = GetGameTimer()
     local duration = data.duration
-    local ped = cache.ped or PlayerPedId()
+    local ped = cache and cache.ped or nil
+    if type(ped) ~= 'number' or ped <= 0 then
+        ped = PlayerPedId()
+    end
     
-    -- Load animation dict if needed
     if data.anim then
         if data.anim.dict then
             requestAnimDict(data.anim.dict)
@@ -259,13 +198,12 @@ local function progress(data)
         end
     end
     
-    -- Create prop if needed
     local propEntity = nil
     if data.prop then
         requestModel(data.prop.model)
         local coords = GetEntityCoords(ped)
         propEntity = CreateObject(joaat(data.prop.model), coords.x, coords.y, coords.z, true, true, true)
-        local bone = data.prop.bone or 60309 -- Right hand
+        local bone = data.prop.bone or 60309
         local pos = data.prop.pos or vector3(0.0, 0.0, 0.0)
         local rot = data.prop.rot or vector3(0.0, 0.0, 0.0)
         AttachEntityToEntity(propEntity, ped, GetPedBoneIndex(ped, bone), 
@@ -273,7 +211,6 @@ local function progress(data)
         SetModelAsNoLongerNeeded(joaat(data.prop.model))
     end
 
-    -- Show progress UI
     SendNUIMessage({
         action = 'progressStart',
         data = {
@@ -285,7 +222,6 @@ local function progress(data)
         }
     })
     
-    -- Progress loop
     while activeProgress do
         local elapsed = GetGameTimer() - startTime
         
@@ -293,19 +229,16 @@ local function progress(data)
             break
         end
         
-        -- Check for cancellation
         if data.canCancel and IsControlJustPressed(0, 177) then
             completed = false
             break
         end
         
-        -- Check if dead
         if not data.useWhileDead and IsEntityDead(ped) then
             completed = false
             break
         end
         
-        -- Apply disables
         if data.disable then
             if data.disable.move then
                 DisableControlAction(0, 30, true)
@@ -333,13 +266,10 @@ local function progress(data)
         Wait(0)
     end
     
-    -- Cleanup
     activeProgress = nil
     
-    -- Hide progress UI
     SendNUIMessage({ action = 'progressEnd' })
     
-    -- Clear animation
     if data.anim then
         if data.anim.dict then
             StopAnimTask(ped, data.anim.dict, data.anim.clip, 1.0)
@@ -349,7 +279,6 @@ local function progress(data)
         end
     end
     
-    -- Delete prop
     if propEntity and DoesEntityExist(propEntity) then
         DeleteEntity(propEntity)
     end
@@ -357,38 +286,18 @@ local function progress(data)
     return completed
 end
 
----Cancel the active progress bar
 local function cancelProgress()
     if activeProgress then
         activeProgress = nil
     end
 end
 
----Check if a progress bar is active
----@return boolean
 local function isProgressActive()
     return activeProgress ~= nil
 end
 
--- ============================================================================
--- ALERT DIALOG
--- ============================================================================
-
----@class AlertDialogData
----@field header? string
----@field content? string|string[]
----@field centered? boolean
----@field cancel? boolean
----@field labels? { confirm?: string, cancel?: string }
----@field style? table<string, any>
-
----@alias AlertDialogResult 'confirm' | 'cancel'
-
 local alertPromise = nil
 
----Show an alert dialog and await the result
----@param data AlertDialogData
----@return AlertDialogResult
 local function alertDialog(data)
     if alertPromise then
         return 'cancel'
@@ -410,12 +319,16 @@ local function alertDialog(data)
         }
     })
 
+    SetNuiFocus(true, true)
     local result = Citizen.Await(alertPromise)
+    SetNuiFocus(false, false)
     alertPromise = nil
     return result
 end
 
 RegisterNUICallback('alertDialogResult', function(data, cb)
+    SetNuiFocus(false, false)
+
     if alertPromise then
         alertPromise:resolve(data and data.result or 'cancel')
     end
@@ -423,19 +336,6 @@ RegisterNUICallback('alertDialogResult', function(data, cb)
     cb({ ok = true })
 end)
 
--- ============================================================================
--- TEXT UI
--- ============================================================================
-
----@class TextUIData
----@field text string
----@field position? 'top-center' | 'top-left' | 'top-right' | 'bottom-center' | 'bottom-left' | 'bottom-right'
----@field icon? 'hand' | string
----@field style? table<string, any>
-
----Show a single top-level text UI prompt
----@param text string
----@param opts? TextUIData
 local function showTextUI(text, opts)
     opts = opts or {}
 
@@ -450,7 +350,6 @@ local function showTextUI(text, opts)
     })
 end
 
----Hide the text UI prompt
 local function hideTextUI()
     SendNUIMessage({ action = 'textUIHide' })
 end
@@ -508,17 +407,9 @@ RegisterNUICallback('contextMenuResult', function(data, cb)
     cb({ ok = true })
 end)
 
--- ============================================================================
--- NET EVENTS
--- ============================================================================
-
 RegisterNetEvent('es_lib:notify', function(data)
     notify(data)
 end)
-
--- ============================================================================
--- EXPORTS (for compatibility)
--- ============================================================================
 
 exports('notify', notify)
 exports('hideNotify', hideNotify)
@@ -538,7 +429,6 @@ exports('notifyInfo', notifyInfo)
 exports('requestAnimDict', requestAnimDict)
 exports('requestModel', requestModel)
 
--- Compatibility export with capital N and (type, message, duration) signature
 exports('Notify', function(notifyType, message, duration)
     notify({
         type = notifyType or 'info',
@@ -547,11 +437,6 @@ exports('Notify', function(notifyType, message, duration)
     })
 end)
 
--- ============================================================================
--- RETURN MODULE API
--- ============================================================================
-
--- Attach functions to lib table for lib.notify(), lib.progress(), etc.
 lib.notify = notify
 lib.hideNotify = hideNotify
 lib.clearNotifications = clearNotifications

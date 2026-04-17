@@ -1,43 +1,5 @@
---[[
-    Everest Lib - Menu System (Client)
-    Keyboard + mouse menu inspired by ox_lib's ergonomics.
-]]
-
----@class EsMenuOption
----@field label string
----@field description? string
----@field icon? string
----@field iconColor? string
----@field progress? number
----@field values? string[]|{ label: string, description?: string }[]
----@field checked? boolean
----@field defaultIndex? number
----@field args? table<string, any>
----@field close? boolean
-
----@alias EsMenuPosition 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-
----@class EsMenu
----@field id string
----@field title string
----@field subtitle? string
----@field options EsMenuOption[]
----@field position? EsMenuPosition
----@field disableInput? boolean
----@field canClose? boolean
----@field onClose? fun(keyPressed?: 'Escape'|'Backspace')
----@field onSelected? fun(selected: number, secondary: number|boolean, args: table)
----@field onSideScroll? fun(selected: number, scrollIndex: number, args: table)
----@field onCheck? fun(selected: number, checked: boolean, args: table)
-
----@alias EsMenuPressCb fun(selected: number, scrollIndex: number, args: table)
-
 local Menus = {}
 local OpenMenuId = nil
-
--- ============================================================================
--- CONTROL LOCK (camera + combat) while menu open
--- ============================================================================
 
 local controlsLocked = false
 local controlThreadActive = false
@@ -82,12 +44,27 @@ local function shallowCopyOption(option)
         values = option.values,
         checked = option.checked,
         defaultIndex = option.defaultIndex,
-        args = option.args,
         close = option.close,
     }
 end
 
----@param menu EsMenu
+local function getMenuOption(menu, selected)
+    if type(selected) ~= 'number' then
+        return nil, nil
+    end
+
+    selected = math.tointeger(selected)
+    if not selected or selected < 1 or selected > #menu.options then
+        return nil, nil
+    end
+
+    return menu.options[selected], selected
+end
+
+local function getOptionArgs(option)
+    return type(option and option.args) == 'table' and option.args or {}
+end
+
 local function buildNuiMenu(menu)
     local options = {}
     for i = 1, #menu.options do
@@ -105,14 +82,10 @@ local function buildNuiMenu(menu)
     }
 end
 
----@param id string
----@return EsMenu|nil
 local function getMenu(id)
     return Menus[id]
 end
 
----@param menu EsMenu
----@param cb EsMenuPressCb
 local function registerMenu(menu, cb)
     if type(menu) ~= 'table' then
         error('es_lib.registerMenu: menu must be a table')
@@ -148,7 +121,6 @@ local function registerMenu(menu, cb)
     return true
 end
 
----@param id string
 local function showMenu(id)
     local menu = getMenu(id)
     if not menu then
@@ -174,7 +146,6 @@ local function showMenu(id)
     return true
 end
 
----@param runOnClose? boolean
 local function hideMenu(runOnClose)
     if not OpenMenuId then
         return false
@@ -197,14 +168,10 @@ local function hideMenu(runOnClose)
     return prevId
 end
 
----@return string|nil
 local function getOpenMenu()
     return OpenMenuId
 end
 
----@param id string
----@param options table
----@param index? number
 local function setMenuOptions(id, options, index)
     local menu = getMenu(id)
     if not menu then
@@ -245,10 +212,6 @@ local function setMenuOptions(id, options, index)
     return true
 end
 
--- ============================================================================
--- NUI CALLBACKS
--- ============================================================================
-
 RegisterNUICallback('es_menu_close', function(data, cb)
     local id = data and data.id
     local keyPressed = data and data.keyPressed
@@ -281,7 +244,10 @@ RegisterNUICallback('es_menu_selected', function(data, cb)
 
     local menu = getMenu(id)
     if menu and menu.onSelected then
-        menu.onSelected(data.selected, data.secondary, data.args or {})
+        local option, selected = getMenuOption(menu, data.selected)
+        if option then
+            menu.onSelected(selected, data.secondary == true, getOptionArgs(option))
+        end
     end
 
     cb({ ok = true })
@@ -296,7 +262,13 @@ RegisterNUICallback('es_menu_sideScroll', function(data, cb)
 
     local menu = getMenu(id)
     if menu and menu.onSideScroll then
-        menu.onSideScroll(data.selected, data.scrollIndex, data.args or {})
+        local option, selected = getMenuOption(menu, data.selected)
+        local scrollIndex = type(data.scrollIndex) == 'number' and math.tointeger(data.scrollIndex) or nil
+
+        if option and option.values and scrollIndex and scrollIndex >= 1 and scrollIndex <= #option.values then
+            option.defaultIndex = scrollIndex
+            menu.onSideScroll(selected, scrollIndex, getOptionArgs(option))
+        end
     end
 
     cb({ ok = true })
@@ -311,7 +283,11 @@ RegisterNUICallback('es_menu_check', function(data, cb)
 
     local menu = getMenu(id)
     if menu and menu.onCheck then
-        menu.onCheck(data.selected, data.checked, data.args or {})
+        local option, selected = getMenuOption(menu, data.selected)
+        if option and type(data.checked) == 'boolean' then
+            option.checked = data.checked
+            menu.onCheck(selected, data.checked, getOptionArgs(option))
+        end
     end
 
     cb({ ok = true })
@@ -330,15 +306,25 @@ RegisterNUICallback('es_menu_submit', function(data, cb)
         return
     end
 
-    local selected = data.selected
-    local scrollIndex = data.scrollIndex
-    local args = data.args or {}
+    local selected = type(data.selected) == 'number' and math.tointeger(data.selected) or nil
+    local option = selected and menu.options[selected] or nil
+    if not option then
+        cb({ ok = true })
+        return
+    end
+
+    local scrollIndex = type(data.scrollIndex) == 'number' and math.tointeger(data.scrollIndex) or option.defaultIndex or 1
+    if option.values and (scrollIndex < 1 or scrollIndex > #option.values) then
+        cb({ ok = true })
+        return
+    end
+
+    local args = getOptionArgs(option)
 
     if menu.cb then
         menu.cb(selected, scrollIndex, args)
     end
 
-    local option = menu.options[selected]
     local shouldClose = option and option.close ~= false
 
     if shouldClose and OpenMenuId == id then
@@ -354,19 +340,11 @@ RegisterNUICallback('es_menu_submit', function(data, cb)
     cb({ ok = true, close = shouldClose })
 end)
 
--- ============================================================================
--- EXPORTS
--- ============================================================================
-
 exports('registerMenu', registerMenu)
 exports('showMenu', showMenu)
 exports('hideMenu', hideMenu)
 exports('getOpenMenu', getOpenMenu)
 exports('setMenuOptions', setMenuOptions)
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.registerMenu = registerMenu
 lib.showMenu = showMenu

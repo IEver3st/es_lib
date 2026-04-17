@@ -1,37 +1,37 @@
---[[
-    Everest Lib - Client Callback Module
-    ox_lib compatible callback system for client-server communication
-    
-    Usage:
-    - lib.callback(name, delay, cb, ...) - Async callback with function
-    - lib.callback.await(name, delay, ...) - Synchronous callback that returns values
-    - lib.callback.register(name, cb) - Register a client callback for server to call
-]]
-
--- ============================================================================
--- CALLBACK STORAGE
--- ============================================================================
-
 local pendingCallbacks = {}
+local callbackTimestamps = {}
 local callbackId = 0
 local registeredCallbacks = {}
+local CALLBACK_TIMEOUT = 30000
 
--- ============================================================================
--- TRIGGER SERVER CALLBACK (Async)
--- ============================================================================
+local function resolvePendingCallback(id, ...)
+    local cb = pendingCallbacks[id]
+    if not cb then
+        return false
+    end
 
----Trigger a server callback asynchronously
----@param name string The callback name registered on the server
----@param delay? number|false Delay before calling (ms) or false for immediate
----@param cb function The function to call with the result
----@vararg any Arguments to pass to the server
+    pendingCallbacks[id] = nil
+    callbackTimestamps[id] = nil
+
+    if type(cb) == 'function' then
+        cb(...)
+    elseif type(cb) == 'table' and cb.resolve then
+        cb:resolve({ ... })
+    end
+
+    return true
+end
+
 local function triggerCallback(name, delay, cb, ...)
     callbackId = callbackId + 1
     local id = callbackId
     local args = {...}
-    
-    pendingCallbacks[id] = cb
-    
+
+    if cb ~= nil then
+        pendingCallbacks[id] = cb
+        callbackTimestamps[id] = GetGameTimer()
+    end
+
     if delay and delay > 0 then
         SetTimeout(delay, function()
             TriggerServerEvent('es_lib:callback', name, id, table.unpack(args))
@@ -41,15 +41,6 @@ local function triggerCallback(name, delay, cb, ...)
     end
 end
 
--- ============================================================================
--- TRIGGER SERVER CALLBACK (Sync/Await)
--- ============================================================================
-
----Trigger a server callback and wait for the result
----@param name string The callback name registered on the server
----@param delay? number|false Delay before calling (ms) or false for immediate
----@vararg any Arguments to pass to the server
----@return any ... The values returned by the server callback
 local function awaitCallback(name, delay, ...)
     callbackId = callbackId + 1
     local id = callbackId
@@ -57,6 +48,7 @@ local function awaitCallback(name, delay, ...)
     
     local p = promise.new()
     pendingCallbacks[id] = p
+    callbackTimestamps[id] = GetGameTimer()
     
     if delay and delay > 0 then
         SetTimeout(delay, function()
@@ -69,20 +61,9 @@ local function awaitCallback(name, delay, ...)
     return table.unpack(Citizen.Await(p))
 end
 
--- ============================================================================
--- REGISTER CLIENT CALLBACK (For server to call)
--- ============================================================================
-
----Register a callback on the client that can be triggered by the server
----@param name string The callback name
----@param cb function The callback function
 local function registerCallback(name, cb)
     registeredCallbacks[name] = cb
 end
-
--- ============================================================================
--- CREATE CALLABLE TABLE
--- ============================================================================
 
 local callback = setmetatable({
     await = awaitCallback,
@@ -93,41 +74,18 @@ local callback = setmetatable({
     end
 })
 
--- ============================================================================
--- EVENT HANDLERS
--- ============================================================================
-
--- Handle response from server
 RegisterNetEvent('es_lib:callbackResponse', function(id, ...)
-    local cb = pendingCallbacks[id]
-    
-    if cb then
-        pendingCallbacks[id] = nil
-        
-        if type(cb) == 'function' then
-            cb(...)
-        elseif type(cb) == 'table' and cb.resolve then
-            -- It's a promise
-            cb:resolve({...})
-        end
-    end
+    resolvePendingCallback(id, ...)
 end)
 
--- Handle server calling a client callback
-RegisterNetEvent('es_lib:clientCallback', function(name, id, ...)
+RegisterNetEvent('es_lib:clientCallback', function(name, id, token, ...)
     local cb = registeredCallbacks[name]
     
     if cb then
         local results = {cb(...)}
-        TriggerServerEvent('es_lib:clientCallbackResponse', id, table.unpack(results))
-    else
-        TriggerServerEvent('es_lib:clientCallbackResponse', id, nil)
+        TriggerServerEvent('es_lib:clientCallbackResponse', id, token, table.unpack(results))
     end
 end)
-
--- ============================================================================
--- EXPORTS
--- ============================================================================
 
 exports('callback', function(name, delay, cb, ...)
     return triggerCallback(name, delay, cb, ...)
@@ -141,9 +99,17 @@ exports('registerCallback', function(name, cb)
     return registerCallback(name, cb)
 end)
 
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
+CreateThread(function()
+    while true do
+        Wait(10000)
+        local now = GetGameTimer()
+        for id, ts in pairs(callbackTimestamps) do
+            if now - ts > CALLBACK_TIMEOUT then
+                resolvePendingCallback(id, nil, 'timeout')
+            end
+        end
+    end
+end)
 
 lib.callback = callback
 

@@ -1,39 +1,22 @@
---[[
-    Everest Lib - External Loader
-    
-    Include in other resources via:
-        shared_script '@es_lib/init.lua'
-    
-    This provides the `lib` and `cache` globals which lazy-load modules
-    when accessed (e.g., lib.notify, lib.callback, lib.zones).
-    
-    Based on ox_lib's module pattern for lazy loading.
-]]
-
 if not _VERSION:find('5.4') then
     error('^1[es_lib] Lua 5.4 is required. Add `lua54 \'yes\'` to your fxmanifest.lua^0')
 end
 
 local es_lib = 'es_lib'
 
--- Check that es_lib is started
 if GetResourceState(es_lib) ~= 'started' then
     error('^1[es_lib] es_lib must be started before this resource^0')
 end
 
 local context = IsDuplicityVersion() and 'server' or 'client'
 
--- ============================================================================
--- CACHE SYSTEM (Client-side player data caching)
--- ============================================================================
-
 local cache = {}
 
 if context == 'client' then
     cache = setmetatable({
-        ped = 0,
-        playerId = -1,
-        serverId = -1,
+        ped = nil,
+        playerId = nil,
+        serverId = nil,
         vehicle = 0,
         seat = -1,
     }, {
@@ -45,7 +28,6 @@ if context == 'client' then
         end,
     })
     
-    -- Initialize cache values
     CreateThread(function()
         while true do
             cache.playerId = PlayerId()
@@ -73,17 +55,11 @@ if context == 'client' then
     end)
 end
 
--- ============================================================================
--- MODULE LOADER (Lazy loading via __index)
--- ============================================================================
-
 local function loadModule(self, moduleName)
     local dir = ('imports/%s'):format(moduleName)
     
-    -- Try to load context-specific file first (client.lua or server.lua)
     local chunk = LoadResourceFile(es_lib, ('%s/%s.lua'):format(dir, context))
     
-    -- Also try shared.lua and prepend it if it exists
     local shared = LoadResourceFile(es_lib, ('%s/shared.lua'):format(dir))
     
     if shared then
@@ -91,34 +67,25 @@ local function loadModule(self, moduleName)
     end
     
     if not chunk then
-        -- Module doesn't exist - return nil (don't cache so we don't break future attempts)
         return nil
     end
     
-    -- Load and execute the module
     local fn, err = load(chunk, ('@@es_lib/imports/%s/%s.lua'):format(moduleName, context))
     
     if not fn then
         error(('^1[es_lib] Error loading module %s: %s^0'):format(moduleName, err))
     end
     
-    -- Execute and get result
     local result = fn()
     
-    -- If module returns a table/function, cache it
-    -- If it returns nil, store a marker so we know it loaded
     if result ~= nil then
         rawset(self, moduleName, result)
     else
-        rawset(self, moduleName, function() end) -- noop marker
+        rawset(self, moduleName, function() end)
     end
     
     return rawget(self, moduleName)
 end
-
--- ============================================================================
--- LIB TABLE SETUP
--- ============================================================================
 
 lib = setmetatable({
     name = es_lib,
@@ -131,20 +98,9 @@ lib = setmetatable({
     end,
 })
 
--- ============================================================================
--- EXPOSE TO GLOBAL ENVIRONMENT
--- ============================================================================
-
 _ENV.lib = lib
 _ENV.cache = cache
 
--- ============================================================================
--- UTILITY: Ensure a module is loaded before proceeding
--- ============================================================================
-
----Ensure a module is loaded (useful for dependencies)
----@param moduleName string
----@return any The loaded module
 function lib.load(moduleName)
     if rawget(lib, moduleName) then
         return rawget(lib, moduleName)
@@ -152,22 +108,12 @@ function lib.load(moduleName)
     return loadModule(lib, moduleName)
 end
 
----Check if we're running inside es_lib resource
----@return boolean
 function lib.isInternalResource()
     return GetCurrentResourceName() == es_lib
 end
 
--- ============================================================================
--- RESOURCE-LOCAL MODULE LOADER (lib.require)
--- ============================================================================
-
 lib._moduleCache = lib._moduleCache or {}
 
----Load a Lua module from the current resource (not es_lib).
----Similar to ox_lib's require, for loading resource-local modules.
----@param modulePath string Dotted module path (e.g. "modules.utility.shared.minimap")
----@return any
 function lib.require(modulePath)
     local resource = GetCurrentResourceName()
     local cacheKey = resource .. ':' .. modulePath

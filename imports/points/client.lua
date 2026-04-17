@@ -1,35 +1,17 @@
---[[
-    Everest Lib - Points Module
-    ox_lib compatible points system for distance-based callbacks
-]]
-
--- ============================================================================
--- CACHED NATIVES
--- ============================================================================
-
 local GetEntityCoords = GetEntityCoords
 local PlayerPedId = PlayerPedId
 local Wait = Wait
 
 local sqrt = math.sqrt
 
--- ============================================================================
--- POINT STORAGE
--- ============================================================================
-
 local points = {}
 local pointId = 0
 local nearbyPoints = {}
 local closestPoint = nil
 
--- ============================================================================
--- CPOINT CLASS
--- ============================================================================
-
 local CPoint = {}
 CPoint.__index = CPoint
 
----Remove the point from the registry
 function CPoint:remove()
     points[self.id] = nil
     
@@ -45,13 +27,6 @@ function CPoint:remove()
     end
 end
 
--- ============================================================================
--- CREATE NEW POINT
--- ============================================================================
-
----Create a new point
----@param data table Point configuration
----@return table point The CPoint object
 local function new(data)
     pointId = pointId + 1
     
@@ -81,12 +56,6 @@ local function new(data)
     return point
 end
 
--- ============================================================================
--- GET ALL POINTS
--- ============================================================================
-
----Get a table of all points created in the resource
----@return table points Array of CPoint objects
 local function getAllPoints()
     local result = {}
     local count = 0
@@ -99,29 +68,13 @@ local function getAllPoints()
     return result
 end
 
--- ============================================================================
--- GET NEARBY POINTS
--- ============================================================================
-
----Get an array of all points in range of the player
----@return table nearbyPoints Array of CPoint objects
 local function getNearbyPoints()
     return nearbyPoints
 end
 
--- ============================================================================
--- GET CLOSEST POINT
--- ============================================================================
-
----Get the data for the closest point to the player
----@return table|nil closestPoint The closest CPoint or nil
 local function getClosestPoint()
     return closestPoint
 end
-
--- ============================================================================
--- POINT TICK HANDLER
--- ============================================================================
 
 CreateThread(function()
     while true do
@@ -181,10 +134,6 @@ CreateThread(function()
     end
 end)
 
--- ============================================================================
--- NEARBY CALLBACK HANDLER
--- ============================================================================
-
 CreateThread(function()
     while true do
         for i = 1, #nearbyPoints do
@@ -198,20 +147,12 @@ CreateThread(function()
     end
 end)
 
--- ============================================================================
--- POINTS MODULE
--- ============================================================================
-
 local pointsModule = {
     new = new,
     getAllPoints = getAllPoints,
     getNearbyPoints = getNearbyPoints,
     getClosestPoint = getClosestPoint
 }
-
--- ============================================================================
--- ATTACH TO LIB
--- ============================================================================
 
 lib.points = pointsModule
 
